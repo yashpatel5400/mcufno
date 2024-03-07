@@ -146,6 +146,8 @@ arrangements between the parties relating hereto.
        THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
 """
 import sys, os
+sys.path.append("../../")
+
 import hydra
 from omegaconf import DictConfig
 
