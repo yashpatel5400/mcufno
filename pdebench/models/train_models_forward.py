@@ -163,7 +163,6 @@ from timeit import default_timer
 def main(cfg: DictConfig):
     if cfg.args.model_name == "FNO":
         from pdebench.models.fno.train import run_training as run_training_FNO
-        print("FNO")
         run_training_FNO(
             if_training=cfg.args.if_training,
             continue_training=cfg.args.continue_training,

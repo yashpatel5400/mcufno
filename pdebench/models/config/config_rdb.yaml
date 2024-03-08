@@ -19,7 +19,7 @@ args:
     model_update: 2
     filename: '2D_rdb_NA_NA.h5'
     single_file: True
-    data_path: '/path/to/swe2d/h5'
+    data_path: '/home/yppatel/mcufno/pdebench/data_download/data'
     reduced_resolution: 1
     reduced_resolution_t: 1
     reduced_batch: 1
