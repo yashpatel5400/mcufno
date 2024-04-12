@@ -48,6 +48,8 @@ g_values = np.array([3, 4, 5])
 subs = {d0: d_values[0], d1: d_values[1], g0: g_values[0], g1: g_values[1], g2: g_values[2]}
 
 Y_num = Y_indexed.subs(subs)
+print(Y_num)
+
 Y_num = np.array(Y_num).astype(np.float64)
 
 print("Winograd 1D Conv is: ")
