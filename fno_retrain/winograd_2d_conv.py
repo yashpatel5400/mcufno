@@ -11,41 +11,6 @@ import math
 from winograd import transfor
 import multiprocessing
 # from quantization import Quant
-from fi import operation_fi, operation_mulfi
-
-
-def matmul_a_fi(a, b, ber, bits):
-    b = b.transpose(3, 4)
-    a1 = a.unsqueeze(1).expand(-1, b.shape[3], -1)
-    b1 = b.unsqueeze(3).expand(-1, -1, -1, a.shape[0], -1, -1)
-    p = a1*b1
-    p = operation_mulfi(p, ber, bits)
-    c = torch.cumsum(p, dim=-1)
-    c_fi = operation_fi(c, ber, bits)
-    y_sum = c_fi[:, :, :, :, :, -1, ...]
-    c_err = c_fi[:, :, :, :, :, 1:-1, ...] - c[:, :, :, :, :, 1:-1, ...]
-    c_error = c_err.sum(dim=-1)
-    y = y_sum + c_error
-    y = operation_fi(y, ber, bits)
-
-    return y
-
-
-def matmul_b_fi(a, b, ber, bits):
-    b = b.transpose(0, 1)
-    a1 = a.unsqueeze(4).expand(-1, -1, -1, -1, b.shape[0], -1)
-    b1 = b.unsqueeze(0).expand(a.shape[3], -1, -1)
-    p = a1*b1
-    p = operation_mulfi(p, ber, bits)
-    c = torch.cumsum(p, dim=-1)
-    c_fi = operation_fi(c, ber, bits)
-    y_sum = c_fi[:, :, :, :, :, -1, ...]
-    c_err = c_fi[:, :, :, :, :, 1:-1, ...] - c[:, :, :, :, :, 1:-1, ...]
-    c_error = c_err.sum(dim=-1)
-    y = y_sum + c_error
-    y = operation_fi(y, ber, bits)
-
-    return y
 
 
 def tile(input, F, filterDim):
@@ -164,3 +129,52 @@ class winconv2d(nn.Module):
     def forward(self, x):
         return win_conv2d(x, self.weight, self.padding, self.win_outtile, self.bits, self.stride, self.bias)
 
+# adding in direct conv layers too from the same repo.
+
+
+def direct_conv2d(in_feature, kernel, padding, stride, bias=None):
+    # quant = Quant(bits)
+    # kernel = quant(kernel)
+    batch = in_feature.size(0)
+    in_channel = in_feature.size(1)
+    orig_h, orig_w = in_feature.size(2), in_feature.size(3)
+    out_channel, keh, kew = kernel.size(0), kernel.size(2), kernel.size(3)
+    padding = padding
+    stride = stride
+    out_rows = ((orig_h + 2*padding - keh) // stride) + 1
+    out_cols = ((orig_w + 2*padding - kew) // stride) + 1
+    inp_unf = torch.nn.functional.unfold(
+        in_feature, (keh, kew), padding=padding, stride=stride)
+    w = kernel.contiguous().view(kernel.size(0), -1).t()
+    x = inp_unf.transpose(1, 2)
+    x1 = x.unsqueeze(1).expand(-1, w.shape[1], -1, -1)
+    w1 = w.transpose(0, 1).unsqueeze(1).expand(-1, x.shape[1], -1)
+    p = x1*w1
+    c = torch.cumsum(p, dim=3)
+    y = c[:, :, :, -1, ...]
+    y = y.transpose(1, 2)
+    if bias is None:
+        out_unf = y.transpose(1, 2)
+    else:
+        out_unf = (y + bias).transpose(1, 2)
+    out = out_unf.contiguous().view(batch, out_channel, out_rows, out_cols)
+
+    return out
+
+
+class conv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, bias=None):
+        super(conv2d, self).__init__()
+        self.stride = stride
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.padding = padding
+        self.weight = torch.nn.Parameter(torch.Tensor(
+            out_channels, in_channels, kernel_size, kernel_size))
+        if bias:
+            self.bias = torch.nn.Parameter(torch.Tensor(out_channels))
+        else:
+            self.register_parameter('bias', None)
+
+    def forward(self, x):
+        return direct_conv2d(x, self.weight, self.padding, self.stride, self.bias)
