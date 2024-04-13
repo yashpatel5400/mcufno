@@ -9,7 +9,7 @@ input  = torch.zeros(B, C, N, N).to('cuda')
 weight = torch.zeros(F, C, K, K).to('cuda')
 
 output = cudnn_convolution_fwd(
-  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_FFT,
+  CudnnConvFwdAlgo.FASTEST,
   input, weight, padding=2, verbose=True
 )
 
