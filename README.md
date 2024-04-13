@@ -27,4 +27,6 @@ References:
 
 3. https://github.com/xingyul/sparse-winograd-cnn/tree/master/doc
 
+4. Efficient Point Selection: https://arxiv.org/abs/2201.10369
+
 Also see: [Speedups or not?](https://discuss.pytorch.org/t/why-does-winograd-algorithm-speedup-convolution-given-that-mul-and-add-cost-the-same-clock-cycles-on-gpu/89993)
