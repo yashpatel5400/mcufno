@@ -105,7 +105,7 @@ class FNO1d(nn.Module):
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
-        
+
         x = F.pad(x, [0, self.padding]) # pad the domain if input is non-periodic
 
         x1 = self.conv0(x)
@@ -214,7 +214,7 @@ class FNO2d(nn.Module):
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, 3, 1, 2)
-        
+
         # Pad tensor with boundary condition
         x = F.pad(x, [0, self.padding, 0, self.padding])
 
@@ -242,9 +242,9 @@ class FNO2d(nn.Module):
         x = self.fc1(x)
         x = F.gelu(x)
         x = self.fc2(x)
-        
+
         return x.unsqueeze(-2)
-    
+
 
 class SpectralConv3d(nn.Module):
     def __init__(self, in_channels, out_channels, modes1, modes2, modes3):
@@ -337,7 +337,7 @@ class FNO3d(nn.Module):
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, 4, 1, 2, 3)
-        
+
         x = F.pad(x, [0, self.padding]) # pad the domain if input is non-periodic
 
         x1 = self.conv0(x)

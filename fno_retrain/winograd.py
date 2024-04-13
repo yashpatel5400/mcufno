@@ -57,9 +57,9 @@ def transfor(win_outtile):
     r=3
     s=1
     if win_outtile > 4:
-            for i in range((win_outtile-3)//2):
-                    a.append(Rational(1,(i+1)*2))
-                    a.append(-Rational(1,(i+1)*2))            
+        for i in range((win_outtile-3)//2):
+                a.append(Rational(1,(i+1)*2))
+                a.append(-Rational(1,(i+1)*2))            
     G = cookToomFilter(a,win_outtile,3)[1]
     array_G = np.array(G).astype(np.float32)
     array_G = torch.from_numpy(array_G).cuda()   
