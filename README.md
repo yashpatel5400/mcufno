@@ -1,22 +1,17 @@
-# mcufno
-FNO inference/training for edge devices
+# PyTorch cuDNN Convolution
 
+PyTorch extension enabling direct access to the following cuDNN-accelerated C++ functions
+that are included in PyTorch:
 
-## Papers to read:
-1. Optimal Brain Quantization: Better way to PTQ - https://github.com/IST-DASLab/OBC
+- `cudnn_convolution`
+- `cudnn_convolution_backward_weight`
+- `cudnn_convolution_backward_input`
 
-2. Point Selection for Winograd Conv - https://arxiv.org/abs/2201.10369
+The functions defined here can be called from Python in replacement of
+`torch.nn.conv2d`, `torch.nn.grad.conv2d_weight` and `torch.nn.grad.conv2d_input`,
+and run significantly faster. See **example.py** for how these functions
+are called.
 
-3. Comparisons of Winograd Conv for different convolution settings - https://www.diva-portal.org/smash/get/diva2:1778618/FULLTEXT01.pdf
+Adapted from the following code posted by *hanspinckaers*:
 
-4. overcoming num instability of Wino - https://openaccess.thecvf.com/content/WACV2024/papers/Mori_Wino_Vidi_Vici_Conquering_Numerical_Instability_of_8-Bit_Winograd_Convolution_WACV_2024_paper.pdf
-
-5. ICLR24 paper on quant-friendly Wino - https://openreview.net/forum?id=XXrUarMM20
-
-## To Dos:
-
-1. Winograd Neural Operator - faster implementations of WC as replacement for FNO layers?
-
-2. PTQ Scheme
-
-3. Evaluation: Reduction in model size, degradation in accuracy, what benchmarks can we compare this to?
+https://discuss.pytorch.org/t/cuda-error-with-cudnn-convolution-backward-weight-function/41214
