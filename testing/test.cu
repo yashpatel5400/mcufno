@@ -66,8 +66,8 @@ int main() {
 // input
   const int in_n = 1;
   const int in_c = 1;
-  const int in_h = 5;
-  const int in_w = 5;
+  const int in_h = 9;
+  const int in_w = 9;
   std::cout << "in_n: " << in_n << std::endl;
   std::cout << "in_c: " << in_c << std::endl;
   std::cout << "in_h: " << in_h << std::endl;
@@ -87,8 +87,8 @@ int main() {
   // filter
   const int filt_k = 1;
   const int filt_c = 1;
-  const int filt_h = 2;
-  const int filt_w = 2;
+  const int filt_w = 3;
+  const int filt_h = 3;
   std::cout << "filt_k: " << filt_k << std::endl;
   std::cout << "filt_c: " << filt_c << std::endl;
   std::cout << "filt_h: " << filt_h << std::endl;
@@ -169,7 +169,7 @@ int main() {
   //       in_desc, filt_desc, conv_desc, out_desc,
   //       CUDNN_CONVOLUTION_FWD_PREFER_FASTEST, 0, &algo));
 
-  cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_GEMM;
+  cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED;
   std::cout << "Convolution algorithm: " << algo << std::endl;
   std::cout << std::endl;
 
