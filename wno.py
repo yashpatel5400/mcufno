@@ -30,22 +30,22 @@ class WNO2d(FNO2d):
         x = F.pad(x, [0, self.padding, 0, self.padding])
 
         x1 = self.conv0(x)
-        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w0.weight) + self.w0.bias[:, None, None]
+        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w0.weight, padding=1) + self.w0.bias[:, None, None]
         x = x1 + x2
         x = F.gelu(x)
 
         x1 = self.conv1(x)
-        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w1.weight) + self.w1.bias[:, None, None]
+        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w1.weight, padding=1) + self.w1.bias[:, None, None]
         x = x1 + x2
         x = F.gelu(x)
 
         x1 = self.conv2(x)
-        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w2.weight) + self.w2.bias[:, None, None]
+        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w2.weight, padding=1) + self.w2.bias[:, None, None]
         x = x1 + x2
         x = F.gelu(x)
 
         x1 = self.conv3(x)
-        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w3.weight) + self.w3.bias[:, None, None]
+        x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w3.weight, padding=1) + self.w3.bias[:, None, None]
         x = x1 + x2
 
         x = x[..., :-self.padding, :-self.padding] # Unpad the tensor
@@ -62,7 +62,24 @@ def test_correct(pde):
 
     initial_step = 1
     model_weights = torch.load(f"{pde}_FNO.pt")
-    fno = WNO2d(num_channels=1, modes1=12, modes2=12, width=20, initial_step=initial_step).to("cuda")
+
+    method_to_name = {
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM: "IMPLICIT_GEMM",
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM: "IMPLICIT_PRECOMP_GEMM",
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_GEMM: "GEMM",
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_FFT: "FFT",
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING: "FFT_TILING",
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD: "WINOGRAD",
+        CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED: "WINOGRAD_NONFUSED",
+    }    
+
+    fno = WNO2d(
+        num_channels=1, 
+        method=CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD, 
+        modes1=12, 
+        modes2=12, 
+        width=20, 
+        initial_step=initial_step).to("cuda")
     fno.load_state_dict(model_weights["model_state_dict"])
 
     device  = "cuda"
