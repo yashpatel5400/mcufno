@@ -63,6 +63,14 @@ def test_correct(pde):
     initial_step = 1
     model_weights = torch.load(f"{pde}_FNO.pt")
 
+    # HACK: augment baseline structure to allow for Winograd 3x3 and 5x5 convs to be tested
+    weights_to_expand = ["w0", "w1", "w2", "w3"]
+    for weight in weights_to_expand:
+        weight_name = f"{weight}.weight"
+        tmp = torch.zeros((20, 20, 3, 3))
+        tmp[:,:,1,1] = model_weights["model_state_dict"][weight_name][:,:,0,0]
+        model_weights["model_state_dict"][weight_name] = tmp.clone()
+
     method_to_name = {
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM: "IMPLICIT_GEMM",
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM: "IMPLICIT_PRECOMP_GEMM",
@@ -71,7 +79,7 @@ def test_correct(pde):
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING: "FFT_TILING",
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD: "WINOGRAD",
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED: "WINOGRAD_NONFUSED",
-    }    
+    }   
 
     fno = WNO2d(
         num_channels=1, 
