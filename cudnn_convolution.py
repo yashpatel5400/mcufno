@@ -164,13 +164,6 @@ def cudnn_convolution_fwd(cudnn_fwd_algo, input, weight, output=None, padding=0,
     OH = int(((H-K+2*padding[0])/stride[0])+1)
     OW = int(((W-L+2*padding[1])/stride[1])+1)
     output = torch.zeros((B, F, OH, OW), dtype=input.dtype).to(input.device)
-    
-    # print(f"Input : {B, C_I, H, W}")
-    # print(f"Weight: {F, C_W, K, L}")
-    # print(f"Output: {B, F, OH, OW}")
-    
-    # exit()
-  # return cudnn_convolution.conv_test()
 
   return cudnn_convolution.convolution(
     cudnn_fwd_algo.value, input, weight, output,

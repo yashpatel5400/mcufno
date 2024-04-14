@@ -10,14 +10,21 @@ from cudnn_convolution import *
 input  = torch.from_numpy(np.array(range(25))).type(torch.float32).reshape((1, 1, 5, 5)).to('cuda')
 weight = torch.ones((1, 1, 2, 2)).type(torch.float32).to('cuda')
 
-output = cudnn_convolution_fwd(
-  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
-  input, weight, padding=1, verbose=True
-)
-baseline_result = scipy.signal.convolve2d(input.detach().cpu().numpy().squeeze(), weight.detach().cpu().numpy().squeeze())
+conv_method_names = {
+  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM: "IMPLICIT_GEMM",
+  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM: "IMPLICIT_PRECOMP_GEMM",
+  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_GEMM: "GEMM",
+  # CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_DIRECT: "DIRECT",
+  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_FFT: "FFT",
+  CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING: "FFT_TILING",
+  # CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD: "WINOGRAD",
+  # CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED: "WINOGRAD_NONFUSED",
+}
 
-print(f"Verify baseline: {baseline_result}")
-print(f"Done! {output}")
+for conv_method in conv_method_names:
+  print(f"Performing: {conv_method_names[conv_method]}")
+  output = cudnn_convolution_fwd(conv_method, input, weight, padding=1, verbose=True)
+print(f"Done!")
 # # create dummy gradient w.r.t. the output
 # grad_output = torch.zeros(128, 64, 14, 14).to('cuda')
 
