@@ -135,7 +135,7 @@ def __lazzy_load__():
     __cpp_ext__ = cudnn_convolution = load(
       name="cudnn_convolution",
       sources=["cudnn_convolution.cu", "cudnn_utils.cpp"],
-      extra_ldflags = ["-lcudnn"],
+      extra_ldflags = ["-L /home/yppatel/anaconda3/envs/operator/lib/python3.11/site-packages/nvidia/cudnn/lib/ -l:libcudnn.so.8"],
       with_cuda=True,
       verbose=True
     )
@@ -170,9 +170,9 @@ def cudnn_convolution_fwd(cudnn_fwd_algo, input, weight, output=None, padding=0,
     # print(f"Output: {B, F, OH, OW}")
     
     # exit()
-  return cudnn_convolution.conv_test()
+  # return cudnn_convolution.conv_test()
 
-  # return cudnn_convolution.convolution(
-  #   cudnn_fwd_algo.value, input, weight, output,
-  #   stride, padding, dilation, groups, verbose
-  # )
+  return cudnn_convolution.convolution(
+    cudnn_fwd_algo.value, input, weight, output,
+    stride, padding, dilation, groups, verbose
+  )

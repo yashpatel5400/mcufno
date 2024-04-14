@@ -96,152 +96,118 @@ at::Tensor convolution(const int fwdAlgo,
                        c10::ArrayRef<int64_t> stride, c10::ArrayRef<int64_t> padding,
                        c10::ArrayRef<int64_t> dilation, int64_t groups, bool verbose)
 {
-  std::cout << "updated" << std::endl;
-
   const cudnnHandle_t cudnn = at::native::getCudnnHandle();
 
-  // input
-  const int in_n = 1;
-  const int in_c = 1;
-  const int in_h = 5;
-  const int in_w = 5;
-  std::cout << "in_n: " << in_n << std::endl;
-  std::cout << "in_c: " << in_c << std::endl;
-  std::cout << "in_h: " << in_h << std::endl;
-  std::cout << "in_w: " << in_w << std::endl;
-  std::cout << std::endl;
+  /*****************************************************************************
+   * 1. Initializing Descriptors
+   ****************************************************************************/
+  cudnnDescriptors_t desc;
+  initialize_descriptors(input, weight, output, stride, padding, dilation, desc);
 
-  cudnnTensorDescriptor_t in_desc;
-  CUDNN_CALL(cudnnCreateTensorDescriptor(&in_desc));
-  CUDNN_CALL(cudnnSetTensor4dDescriptor(
-        in_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-        in_n, in_c, in_h, in_w));
+  /*****************************************************************************
+   * 2. Setting FWD Convolution Algo
+   ****************************************************************************/
+  cudnnConvolutionFwdAlgoPerf_t convolution_algorithm[CUDNN_CONVOLUTION_FWD_ALGO_COUNT];
+  int returnedAlgoCount;
 
-  float *in_data;
-  CUDA_CALL(cudaMalloc(
-        &in_data, in_n * in_c * in_h * in_w * sizeof(float)));
+  if (fwdAlgo == -1)
+  {
+    if (verbose)
+      std::cout << "Trying all" << std::endl;
 
-  // filter
-  const int filt_k = 1;
-  const int filt_c = 1;
-  const int filt_h = 2;
-  const int filt_w = 2;
-  std::cout << "filt_k: " << filt_k << std::endl;
-  std::cout << "filt_c: " << filt_c << std::endl;
-  std::cout << "filt_h: " << filt_h << std::endl;
-  std::cout << "filt_w: " << filt_w << std::endl;
-  std::cout << std::endl;
+    checkCUDNN(
+        cudnnFindConvolutionForwardAlgorithm(/*handle*/ cudnn,
+                                             /*xDesc*/ desc.input,
+                                             /*wDesc*/ desc.weight,
+                                             /*convDesc*/ desc.convolution,
+                                             /*yDesc*/ desc.output,
+                                             /*requestedAlgoCount*/ CUDNN_CONVOLUTION_FWD_ALGO_COUNT,
+                                             /*returnedAlgoCount*/ &returnedAlgoCount,
+                                             /*perfResults*/ convolution_algorithm));
+    if (verbose)
+      for (int i = 0; i < returnedAlgoCount; i++)
+        std::cout << convolution_algorithm[i] << std::endl;
+  }
+  else
+  {
+    convolution_algorithm[0].algo = static_cast<cudnnConvolutionFwdAlgo_t>(fwdAlgo);
+    convolution_algorithm[0].status = static_cast<cudnnStatus_t>(0);
+    convolution_algorithm[0].time = -1;
+    convolution_algorithm[0].memory = 0;
+    convolution_algorithm[0].determinism = static_cast<cudnnDeterminism_t>(-1);
+    convolution_algorithm[0].mathType = static_cast<cudnnMathType_t>(0);
+    if (verbose)
+    {
+      std::cout << "Attempt with defined Algo:" << std::endl;
+      std::cout << convolution_algorithm[0] << std::endl;
+    }
+  }
 
-  cudnnFilterDescriptor_t filt_desc;
-  CUDNN_CALL(cudnnCreateFilterDescriptor(&filt_desc));
-  CUDNN_CALL(cudnnSetFilter4dDescriptor(
-        filt_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
-        filt_k, filt_c, filt_h, filt_w));
+  /*****************************************************************************
+   * 3. Get and Allocate Memory for Workspace
+   ****************************************************************************/
+  if (verbose)
+    std::cout << "Allocating Workspace" << std::endl;
 
-  float *filt_data;
-  CUDA_CALL(cudaMalloc(
-      &filt_data, filt_k * filt_c * filt_h * filt_w * sizeof(float)));
+  size_t workspace_bytes{0};
+  checkCUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn,
+                                                     /*xDesc*/ desc.input,
+                                                     /*wDesc*/ desc.weight,
+                                                     /*convDesc*/ desc.convolution,
+                                                     /*yDesc*/ desc.output,
+                                                     /*algo*/ convolution_algorithm[0].algo,
+                                                     /*sizeInBytes*/ &workspace_bytes));
 
-  // convolution
-  const int pad_h = 1;
-  const int pad_w = 1;
-  const int str_h = 1;
-  const int str_w = 1;
-  const int dil_h = 1;
-  const int dil_w = 1;
-  std::cout << "pad_h: " << pad_h << std::endl;
-  std::cout << "pad_w: " << pad_w << std::endl;
-  std::cout << "str_h: " << str_h << std::endl;
-  std::cout << "str_w: " << str_w << std::endl;
-  std::cout << "dil_h: " << dil_h << std::endl;
-  std::cout << "dil_w: " << dil_w << std::endl;
-  std::cout << std::endl;
+  /*****************************************************************************
+   * 4. Get and Allocate Memory for Workspace
+   ****************************************************************************/
+  if (verbose) {
+    std::cout << "Workspace size: ";
+    cout_unit(std::cout, workspace_bytes) << std::endl;
+  }
 
-  cudnnConvolutionDescriptor_t conv_desc;
-  CUDNN_CALL(cudnnCreateConvolutionDescriptor(&conv_desc));
-  CUDNN_CALL(cudnnSetConvolution2dDescriptor(
-        conv_desc,
-        pad_h, pad_w, str_h, str_w, dil_h, dil_w,
-        CUDNN_CONVOLUTION, CUDNN_DATA_FLOAT));
+  void *d_workspace{nullptr};
+  cudaMalloc(&d_workspace, workspace_bytes);
 
-  // output
-  int out_n;
-  int out_c;
-  int out_h;
-  int out_w;
-  
-  CUDNN_CALL(cudnnGetConvolution2dForwardOutputDim(
-        conv_desc, in_desc, filt_desc,
-        &out_n, &out_c, &out_h, &out_w));
+  if (verbose) {
+    std::cout << "Allocated size: ";
+    cout_unit(std::cout, workspace_bytes) << std::endl;
+  }
 
-  std::cout << "out_n: " << out_n << std::endl;
-  std::cout << "out_c: " << out_c << std::endl;
-  std::cout << "out_h: " << out_h << std::endl;
-  std::cout << "out_w: " << out_w << std::endl;
-  std::cout << std::endl;
+  /*****************************************************************************
+   * 5. Call CuDNN Convolution
+   ****************************************************************************/
+  // cudaEvent_t start, stop;
+  // cudaEventCreate(&start);
+  // cudaEventCreate(&stop);
 
-  cudnnTensorDescriptor_t out_desc;
-  CUDNN_CALL(cudnnCreateTensorDescriptor(&out_desc));
-  CUDNN_CALL(cudnnSetTensor4dDescriptor(
-        out_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-        out_n, out_c, out_h, out_w));
+  // cudaEventRecord(start);
+  const float alpha = 1.0f, beta = 0.0f;
+  checkCUDNN(cudnnConvolutionForward(cudnn,
+                                     /*alpha*/ &alpha,
+                                     /*xDesc*/ desc.input,
+                                     /*x*/ input.data_ptr(),
+                                     /*wDesc*/ desc.weight,
+                                     /*w*/ weight.data_ptr(),
+                                     /*convDesc*/ desc.convolution,
+                                     /*algo*/ convolution_algorithm[0].algo,
+                                     /*workSpace*/ d_workspace,
+                                     /*workSpaceSizeInBytes*/ workspace_bytes,
+                                     /*beta*/ &beta,
+                                     /*yDesc*/ desc.output,
+                                     /*y*/ output.data_ptr()));
+  // cudaEventRecord(stop);
+  // cudaEventSynchronize(stop);
+  // float milliseconds{0};
+  // cudaEventElapsedTime(&milliseconds, start, stop);
+  // if (verbose)
+  //   std::cout << "Elapsed Time: " << milliseconds << " ms" << std::endl;
 
-  float *out_data;
-  CUDA_CALL(cudaMalloc(
-        &out_data, out_n * out_c * out_h * out_w * sizeof(float)));
-
-  // algorithm
-  // CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM         = 0 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM = 1 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_GEMM                  = 2 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_DIRECT                = 3 - N
-  // CUDNN_CONVOLUTION_FWD_ALGO_FFT                   = 4 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING            = 5 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD              = 6 - N
-  // CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED     = 7 - N
-  // CUDNN_CONVOLUTION_FWD_ALGO_COUNT                 = 8 - Y
-
-  // CUDNN_CALL(cudnnGetConvolutionForwardAlgorithm(
-  //       cudnn,
-  //       in_desc, filt_desc, conv_desc, out_desc,
-  //       CUDNN_CONVOLUTION_FWD_PREFER_FASTEST, 0, &algo));
-
-  cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_GEMM;
-  std::cout << "Convolution algorithm: " << algo << std::endl;
-  std::cout << std::endl;
-
-  // workspace
-  size_t ws_size;
-  CUDNN_CALL(cudnnGetConvolutionForwardWorkspaceSize(
-        cudnn, in_desc, filt_desc, conv_desc, out_desc, algo, &ws_size));
-
-  float *ws_data;
-  CUDA_CALL(cudaMalloc(&ws_data, ws_size));
-
-  std::cout << "Workspace size: " << ws_size << std::endl;
-  std::cout << std::endl;
-
-  // results
-  std::cout << "in_data:" << std::endl;
-  print(in_data, in_n, in_c, in_h, in_w);
-  
-  std::cout << "filt_data:" << std::endl;
-  print(filt_data, filt_k, filt_c, filt_h, filt_w);
-
-  // perform
-  float alpha = 1.f;
-  float beta = 0.f;
-  dev_iota<<<in_w * in_h, in_n * in_c>>>(in_data);
-  dev_const<<<filt_w * filt_h, filt_k * filt_c>>>(filt_data, 1.f);
-  CUDNN_CALL(cudnnConvolutionForward(
-      cudnn,
-      &alpha, in_desc, in_data, filt_desc, filt_data,
-      conv_desc, algo, ws_data, ws_size,
-      &beta, out_desc, out_data));
-
-  
-  std::cout << "out_data:" << std::endl;
-  print(out_data, out_n, out_c, out_h, out_w);
+  /*****************************************************************************
+   * 5. Freeing variables
+   ****************************************************************************/
+  cudaFree(d_workspace);
+  return output;
 }
 
 at::Tensor convolution_backward_weight(const int bwdFilterAlgo,
@@ -487,169 +453,8 @@ at::Tensor convolution_backward_input(const int bwdDataAlgo,
   return output;
 }
 
-
-int conv_test() {
-  const cudnnHandle_t cudnn = at::native::getCudnnHandle();
-
-// input
-  const int in_n = 1;
-  const int in_c = 1;
-  const int in_h = 5;
-  const int in_w = 5;
-  std::cout << "in_n: " << in_n << std::endl;
-  std::cout << "in_c: " << in_c << std::endl;
-  std::cout << "in_h: " << in_h << std::endl;
-  std::cout << "in_w: " << in_w << std::endl;
-  std::cout << std::endl;
-
-  cudnnTensorDescriptor_t in_desc;
-  CUDNN_CALL(cudnnCreateTensorDescriptor(&in_desc));
-  CUDNN_CALL(cudnnSetTensor4dDescriptor(
-        in_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-        in_n, in_c, in_h, in_w));
-
-  float *in_data;
-  CUDA_CALL(cudaMalloc(
-        &in_data, in_n * in_c * in_h * in_w * sizeof(float)));
-
-  // filter
-  const int filt_k = 1;
-  const int filt_c = 1;
-  const int filt_h = 2;
-  const int filt_w = 2;
-  std::cout << "filt_k: " << filt_k << std::endl;
-  std::cout << "filt_c: " << filt_c << std::endl;
-  std::cout << "filt_h: " << filt_h << std::endl;
-  std::cout << "filt_w: " << filt_w << std::endl;
-  std::cout << std::endl;
-
-  cudnnFilterDescriptor_t filt_desc;
-  CUDNN_CALL(cudnnCreateFilterDescriptor(&filt_desc));
-  CUDNN_CALL(cudnnSetFilter4dDescriptor(
-        filt_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
-        filt_k, filt_c, filt_h, filt_w));
-
-  float *filt_data;
-  CUDA_CALL(cudaMalloc(
-      &filt_data, filt_k * filt_c * filt_h * filt_w * sizeof(float)));
-
-  // convolution
-  const int pad_h = 1;
-  const int pad_w = 1;
-  const int str_h = 1;
-  const int str_w = 1;
-  const int dil_h = 1;
-  const int dil_w = 1;
-  std::cout << "pad_h: " << pad_h << std::endl;
-  std::cout << "pad_w: " << pad_w << std::endl;
-  std::cout << "str_h: " << str_h << std::endl;
-  std::cout << "str_w: " << str_w << std::endl;
-  std::cout << "dil_h: " << dil_h << std::endl;
-  std::cout << "dil_w: " << dil_w << std::endl;
-  std::cout << std::endl;
-
-  cudnnConvolutionDescriptor_t conv_desc;
-  CUDNN_CALL(cudnnCreateConvolutionDescriptor(&conv_desc));
-  CUDNN_CALL(cudnnSetConvolution2dDescriptor(
-        conv_desc,
-        pad_h, pad_w, str_h, str_w, dil_h, dil_w,
-        CUDNN_CONVOLUTION, CUDNN_DATA_FLOAT));
-
-  // output
-  int out_n;
-  int out_c;
-  int out_h;
-  int out_w;
-  
-  CUDNN_CALL(cudnnGetConvolution2dForwardOutputDim(
-        conv_desc, in_desc, filt_desc,
-        &out_n, &out_c, &out_h, &out_w));
-
-  std::cout << "out_n: " << out_n << std::endl;
-  std::cout << "out_c: " << out_c << std::endl;
-  std::cout << "out_h: " << out_h << std::endl;
-  std::cout << "out_w: " << out_w << std::endl;
-  std::cout << std::endl;
-
-  cudnnTensorDescriptor_t out_desc;
-  CUDNN_CALL(cudnnCreateTensorDescriptor(&out_desc));
-  CUDNN_CALL(cudnnSetTensor4dDescriptor(
-        out_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
-        out_n, out_c, out_h, out_w));
-
-  float *out_data;
-  CUDA_CALL(cudaMalloc(
-        &out_data, out_n * out_c * out_h * out_w * sizeof(float)));
-
-  // algorithm
-  // CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM         = 0 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM = 1 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_GEMM                  = 2 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_DIRECT                = 3 - N
-  // CUDNN_CONVOLUTION_FWD_ALGO_FFT                   = 4 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING            = 5 - Y
-  // CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD              = 6 - N
-  // CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED     = 7 - N
-  // CUDNN_CONVOLUTION_FWD_ALGO_COUNT                 = 8 - Y
-
-  // CUDNN_CALL(cudnnGetConvolutionForwardAlgorithm(
-  //       cudnn,
-  //       in_desc, filt_desc, conv_desc, out_desc,
-  //       CUDNN_CONVOLUTION_FWD_PREFER_FASTEST, 0, &algo));
-
-  cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_GEMM;
-  std::cout << "Convolution algorithm: " << algo << std::endl;
-  std::cout << std::endl;
-
-  // workspace
-  size_t ws_size;
-  CUDNN_CALL(cudnnGetConvolutionForwardWorkspaceSize(
-        cudnn, in_desc, filt_desc, conv_desc, out_desc, algo, &ws_size));
-
-  float *ws_data;
-  CUDA_CALL(cudaMalloc(&ws_data, ws_size));
-
-  std::cout << "Workspace size: " << ws_size << std::endl;
-  std::cout << std::endl;
-
-  // perform
-  float alpha = 1.f;
-  float beta = 0.f;
-  dev_iota<<<in_w * in_h, in_n * in_c>>>(in_data);
-  dev_const<<<filt_w * filt_h, filt_k * filt_c>>>(filt_data, 1.f);
-
-  // results
-  std::cout << "in_data:" << std::endl;
-  print(in_data, in_n, in_c, in_h, in_w);
-  
-  std::cout << "filt_data:" << std::endl;
-  print(filt_data, filt_k, filt_c, filt_h, filt_w);
-
-  CUDNN_CALL(cudnnConvolutionForward(
-      cudnn,
-      &alpha, in_desc, in_data, filt_desc, filt_data,
-      conv_desc, algo, ws_data, ws_size,
-      &beta, out_desc, out_data));
-  
-  std::cout << "out_data:" << std::endl;
-  print(out_data, out_n, out_c, out_h, out_w);
-
-  // finalizing
-  CUDA_CALL(cudaFree(ws_data));
-  CUDA_CALL(cudaFree(out_data));
-  CUDNN_CALL(cudnnDestroyTensorDescriptor(out_desc));
-  CUDNN_CALL(cudnnDestroyConvolutionDescriptor(conv_desc));
-  CUDA_CALL(cudaFree(filt_data));
-  CUDNN_CALL(cudnnDestroyFilterDescriptor(filt_desc));
-  CUDA_CALL(cudaFree(in_data));
-  CUDNN_CALL(cudnnDestroyTensorDescriptor(in_desc));
-  CUDNN_CALL(cudnnDestroy(cudnn));
-  return 0;
-}
-
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
-  m.def("conv_test", &conv_test, "conv_test");
   m.def("convolution", &convolution, "convolution");
   m.def("convolution_backward_weight", &convolution_backward_weight, "convolution backward weight");
   m.def("convolution_backward_input", &convolution_backward_input, "convolution backward input");

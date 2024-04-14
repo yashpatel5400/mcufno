@@ -1,3 +1,4 @@
+import scipy
 import torch
 import numpy as np
 from torch.utils.cpp_extension import load
@@ -13,8 +14,10 @@ output = cudnn_convolution_fwd(
   CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
   input, weight, padding=1, verbose=True
 )
+baseline_result = scipy.signal.convolve2d(input.detach().cpu().numpy().squeeze(), weight.detach().cpu().numpy().squeeze())
 
-print("Done!")
+print(f"Verify baseline: {baseline_result}")
+print(f"Done! {output}")
 # # create dummy gradient w.r.t. the output
 # grad_output = torch.zeros(128, 64, 14, 14).to('cuda')
 
