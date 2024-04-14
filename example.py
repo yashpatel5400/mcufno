@@ -1,14 +1,14 @@
+import pickle
+
 import scipy
 import torch
 import numpy as np
+import torch.nn.functional as F
 from torch.utils.cpp_extension import load
 from cudnn_convolution import *
 
 # B, F, C = 256, 512, 128
 # N, K, O = 32, 5, 32
-
-input  = torch.from_numpy(np.array(range(25))).type(torch.float32).reshape((1, 1, 5, 5)).to('cuda')
-weight = torch.ones((1, 1, 2, 2)).type(torch.float32).to('cuda')
 
 conv_method_names = {
   CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM: "IMPLICIT_GEMM",
@@ -21,10 +21,23 @@ conv_method_names = {
   # CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED: "WINOGRAD_NONFUSED",
 }
 
-for conv_method in conv_method_names:
-  print(f"Performing: {conv_method_names[conv_method]}")
-  output = cudnn_convolution_fwd(conv_method, input, weight, padding=1, verbose=True)
-print(f"Done!")
+with open("tmp.pkl", "rb") as f:
+    input, weight = pickle.load(f)
+
+input = input.contiguous() # torch.from_numpy(input.cpu().detach().numpy().copy()).to('cuda')
+# input = torch.rand((1, 20, 130, 130)).to('cuda')
+# print(input)
+
+output = cudnn_convolution_fwd(CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM, input, weight)
+torch_conv = F.conv2d(input, weight)
+
+# input_np   = input.squeeze().cpu().detach().numpy()
+# weight_np  = weight.squeeze().cpu().detach().numpy()[::-1,::-1]
+# output_van = scipy.signal.convolve2d(input_np, weight_np, mode="valid")
+
+print(torch.sum((output - torch_conv) ** 2))
+# print(output_van)
+
 # # create dummy gradient w.r.t. the output
 # grad_output = torch.zeros(128, 64, 14, 14).to('cuda')
 
