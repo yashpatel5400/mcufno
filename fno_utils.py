@@ -50,7 +50,7 @@ class SpectralConv2d_fast(nn.Module):
         return x
 
 class FNO2d(nn.Module):
-    def __init__(self, num_channels, modes1=12, modes2=12, width=20, initial_step=10):
+    def __init__(self, num_channels, modes1=12, modes2=12, width=20, initial_step=10, kernel_size=3):
         super(FNO2d, self).__init__()
 
         """
@@ -77,10 +77,10 @@ class FNO2d(nn.Module):
         self.conv1 = SpectralConv2d_fast(self.width, self.width, self.modes1, self.modes2)
         self.conv2 = SpectralConv2d_fast(self.width, self.width, self.modes1, self.modes2)
         self.conv3 = SpectralConv2d_fast(self.width, self.width, self.modes1, self.modes2)
-        self.w0 = nn.Conv2d(self.width, self.width, 3, padding=1)
-        self.w1 = nn.Conv2d(self.width, self.width, 3, padding=1)
-        self.w2 = nn.Conv2d(self.width, self.width, 3, padding=1)
-        self.w3 = nn.Conv2d(self.width, self.width, 3, padding=1)
+        self.w0 = nn.Conv2d(self.width, self.width, kernel_size, padding=(kernel_size - 1) // 2)
+        self.w1 = nn.Conv2d(self.width, self.width, kernel_size, padding=(kernel_size - 1) // 2)
+        self.w2 = nn.Conv2d(self.width, self.width, kernel_size, padding=(kernel_size - 1) // 2)
+        self.w3 = nn.Conv2d(self.width, self.width, kernel_size, padding=(kernel_size - 1) // 2)
 
         self.fc1 = nn.Linear(self.width, 128)
         self.fc2 = nn.Linear(128, num_channels)
