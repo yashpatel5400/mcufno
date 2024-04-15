@@ -32,32 +32,32 @@ class WNO2d(FNO2d):
         x = F.pad(x, [0, self.padding, 0, self.padding])
 
         x1 = self.conv0(x)
-        if self.method == CudnnConvFwdAlgo.FASTEST:
-            x2 = F.conv2d(x.contiguous(), self.w0.weight, padding=1) + self.w0.bias[:, None, None]
+        if self.method == CudnnConvFwdAlgo.DEFAULT:
+            x2 = F.conv2d(x.contiguous(), self.w0.weight, bias=self.w0.bias, padding=1)
         else:
             x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w0.weight, padding=1) + self.w0.bias[:, None, None]
         x = x1 + x2
         x = F.gelu(x)
 
         x1 = self.conv1(x)
-        if self.method == CudnnConvFwdAlgo.FASTEST:
-            x2 = F.conv2d(x.contiguous(), self.w1.weight, padding=1) + self.w1.bias[:, None, None]
+        if self.method == CudnnConvFwdAlgo.DEFAULT:
+            x2 = F.conv2d(x.contiguous(), self.w1.weight, bias=self.w1.bias, padding=1)
         else:
             x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w1.weight, padding=1) + self.w1.bias[:, None, None]
         x = x1 + x2
         x = F.gelu(x)
 
         x1 = self.conv2(x)
-        if self.method == CudnnConvFwdAlgo.FASTEST:
-            x2 = F.conv2d(x.contiguous(), self.w2.weight, padding=1) + self.w2.bias[:, None, None]
+        if self.method == CudnnConvFwdAlgo.DEFAULT:
+            x2 = F.conv2d(x.contiguous(), self.w2.weight, bias=self.w2.bias, padding=1)
         else:
             x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w2.weight, padding=1) + self.w2.bias[:, None, None]
         x = x1 + x2
         x = F.gelu(x)
 
         x1 = self.conv3(x)
-        if self.method == CudnnConvFwdAlgo.FASTEST:
-            x2 = F.conv2d(x.contiguous(), self.w3.weight, padding=1) + self.w3.bias[:, None, None]
+        if self.method == CudnnConvFwdAlgo.DEFAULT:
+            x2 = F.conv2d(x.contiguous(), self.w3.weight, bias=self.w3.bias, padding=1)
         else:
             x2 = cudnn_convolution_fwd(self.method, x.contiguous(), self.w3.weight, padding=1) + self.w3.bias[:, None, None]
         x = x1 + x2
@@ -138,6 +138,7 @@ if __name__ == "__main__":
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD: "WINOGRAD",
         CudnnConvFwdAlgo.CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED: "WINOGRAD_NONFUSED",
         CudnnConvFwdAlgo.FASTEST: "FASTEST",
+        CudnnConvFwdAlgo.DEFAULT: "DEFAULT",
     }
 
     # first call always takes longer (some startup cost), so ignore that for comparison
@@ -146,6 +147,8 @@ if __name__ == "__main__":
         method_to_time[method_to_name[method]] = time_method(pde, method)
     method_times_df = pd.DataFrame.from_dict(method_to_time)
     
-    pd.set_option('display.precision', 2)
     for method_name in method_to_name.values():
-        print(f"{method_name}: {np.around(method_times_df[method_name].mean(), 3)} ({np.around(method_times_df[method_name].std())})")
+        # mean = np.format_float_scientific(method_times_df[method_name].mean(), precision=4)
+        # std  = np.format_float_scientific(method_times_df[method_name].std(),  precision=4)
+        # print(f"{method_name}: {mean} ({std})")
+        print(f"{method_name}: {np.around(method_times_df[method_name].mean(), 5)} ({np.around(method_times_df[method_name].std(), 5)})")

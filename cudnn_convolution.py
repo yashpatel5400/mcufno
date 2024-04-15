@@ -51,6 +51,9 @@ class CudnnConvFwdAlgo(Enum):
   #results.
   CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED     = 7
 
+  ## Uses default PyTorch implementation of Conv2D rather than CuDNN dispatch
+  DEFAULT                                          = 8
+
   ## Look for the fastest method and try to uses it.
   FASTEST = -1
 
