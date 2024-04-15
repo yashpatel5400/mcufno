@@ -3,6 +3,7 @@ import scipy
 import torch
 import time
 import torch.nn as nn
+import os
 import pandas as pd
 import numpy as np
 import pickle
@@ -166,6 +167,10 @@ if __name__ == "__main__":
         method_to_time[method_to_name[method]] = time_method(cfg, method, kernel_size=int(args.kernel))
     method_times_df = pd.DataFrame.from_dict(method_to_time)
     
-    print(f"--- {args.pde} : {args.kernel} ---")
+    lines = []
     for method_name in method_to_name.values():
-        print(f"{method_name}: {np.around(method_times_df[method_name].mean(), 5)} ({np.around(method_times_df[method_name].std(), 5)})")
+        lines.append(f"{method_name} & {np.around(method_times_df[method_name].mean(), 5)} ({np.around(method_times_df[method_name].std(), 5)})\n")
+    
+    os.makedirs("results", exist_ok=True)
+    with open(os.path.join("results", f"{args.pde}_{args.kernel}.txt"), "w") as f:
+        f.writelines(lines)
