@@ -84,9 +84,9 @@ def time_method(cfg, method, kernel_size):
     times = []
     num_trials = 10
     trial_size = 50
-    train_data = FNODatasetSingle(filename=cfg["filename"])
+    train_data = FNODatasetSingle(filename=os.path.join("experiments", cfg["filename"]))
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=trial_size)
-    model_weights = torch.load(f"{pde_name}_FNO.pt")
+    model_weights = torch.load(os.path.join("experiments", f"{pde_name}_FNO.pt"))
 
     # HACK: augment baseline structure to allow for Winograd 3x3 and 5x5 convs to be tested
     weights_to_expand = ["w0", "w1", "w2", "w3"]
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("--kernel")
     args = parser.parse_args()
 
-    cfg_fn = f"config_{args.pde}.yaml"
+    cfg_fn = os.path.join("experiments", f"config_{args.pde}.yaml")
     with open(cfg_fn, "r") as f:
         cfg = yaml.safe_load(f)
 
